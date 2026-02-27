@@ -73,6 +73,7 @@ struct LungView: View {
                         // Soft ellipse mask keeps particles inside the lung silhouette.
                         Ellipse().scale(x: 0.88, y: 0.92)
                     )
+
             }
             // ── TIME-EXPOSURE MODIFIERS ───────────────────────────────────
             // Subtle desaturation + glow dim, animated on exposure change.
