@@ -176,6 +176,10 @@ struct MainSimulationView: View {
             .padding(.horizontal, 8)
             .padding(.bottom, 12)
             
+            // ── Scroll Indicator (Animated Bouncing Arrow) ──
+            ScrollIndicatorChevron(color: state.selectedAQI.color)
+                .opacity(max(0, 1.0 - (max(0, scrollOffset) / 20.0))) // Fades out as user scrolls down
+            
             Spacer().frame(height: 10)
                     }
                     .frame(minHeight: geo.size.height)
@@ -288,40 +292,58 @@ struct MainSimulationView: View {
                         .padding(.horizontal, 32)
                         .padding(.bottom, 60)
                         
-                        // ── SCROLL SECTION: Reflection ─────────────────────
-                        VStack(spacing: 12) {
-                            Text("Take a Moment")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundStyle(Color(.secondaryLabel))
+                        // ── Scroll Indicator to final page ──
+                        ScrollIndicatorChevron(color: state.selectedAQI.color)
+                            .padding(.bottom, 60)
+                        
+                        // ── SCROLL SECTION: Reflection (Full Screen Page 3) ──
+                        VStack(spacing: 40) {
+                            Spacer()
                             
-                            Text("Long-term exposure shapes lung health.\nDaily choices determine recovery.")
-                                .font(.footnote)
-                                .foregroundStyle(Color(.secondaryLabel))
-                                .multilineTextAlignment(.center)
-                                .lineSpacing(6)
-                                .padding(.horizontal, 40)
+                            VStack(spacing: 16) {
+                                Text("A Moment to Reflect")
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color(.label).opacity(0.85))
+                                
+                                Text("Long-term exposure shapes lung health.\nEvery breath and daily choice determines your recovery.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color(.secondaryLabel))
+                                    .multilineTextAlignment(.center)
+                                    .lineSpacing(6)
+                                    .padding(.horizontal, 40)
+                            }
+                            
+                            // A lightweight guided breathing circle
+                            ReflectionBreathingView(color: state.selectedAQI.color)
+                                .padding(.vertical, 20)
+                            
+                            Spacer()
+                            
+                            // Footer marking the end (Animated 20s delay)
+                            ReflectionFooterView(color: state.selectedAQI.color) {
+                                state.returnToIntro()
+                            }
                         }
-                        .padding(.top, 120)
-                        .padding(.bottom, 80)
+                        .containerRelativeFrame(.vertical) // Makes it take up exactly 1 screen height
                         .frame(maxWidth: .infinity)
                         .background(
                             RadialGradient(
-                                colors: [state.selectedAQI.glowColor.opacity(0.06), .clear],
+                                colors: [state.selectedAQI.glowColor.opacity(0.08), .clear],
                                 center: .center,
                                 startRadius: 0,
-                                endRadius: 150
+                                endRadius: 250
                             )
                         )
-                        .padding(.bottom, 160)
-                        .scrollTransition(.animated.threshold(.visible(0.9))) { effect, phase in
-                            effect.opacity(phase.isIdentity ? 1 : 0.4)
+                        .scrollTransition(.animated.threshold(.visible(0.8))) { effect, phase in
+                            effect.opacity(phase.isIdentity ? 1 : 0.0)
                         }
                     }
                     .background(Color.white.opacity(0.03))
                 }
-                .padding(.horizontal)
+                .scrollTargetLayout()
             }
+            .scrollTargetBehavior(.paging)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(atmosphericBackground)
@@ -576,6 +598,210 @@ private struct AQISelectionSheet: View {
                     }
                     .fontWeight(.medium)
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Scroll Indicator Chevron
+
+/// A subtle, animated bouncing chevron to indicate scrollability without adding clutter.
+private struct ScrollIndicatorChevron: View {
+    var color: Color
+    @State private var bounceOffset: CGFloat = 0
+    
+    var body: some View {
+        Image(systemName: "chevron.compact.down")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(color.opacity(0.6))
+            .offset(y: bounceOffset)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    bounceOffset = 4.0
+                }
+            }
+    }
+}
+
+// MARK: - Reflection Breathing View
+
+/// A calming, slow-pulsing circle that encourages the user to match their breathing.
+/// It uses a 4-second inhale and 6-second exhale rhythm, universally recognized as relaxing.
+private struct ReflectionBreathingView: View {
+    var color: Color
+    
+    @State private var isInhaling = false
+    @State private var phaseText = "Breathe in"
+    @State private var timeRemaining = 4
+    @State private var contextMessage = ""
+    
+    private let inhaleDuration = 4
+    private let exhaleDuration = 6
+    
+    private let inhaleMessages = [
+        "Draw in the air you have left.",
+        "A deep breath, despite it all.",
+        "Fill your lungs."
+    ]
+    
+    private let exhaleMessages = [
+        "Release the tension.",
+        "Let the air go.",
+        "A quiet moment."
+    ]
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            ZStack {
+                // Outer ambient glow
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: isInhaling ? 140 : 80, height: isInhaling ? 140 : 80)
+                    .blur(radius: isInhaling ? 16 : 8)
+                
+                // Inner solid core
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [color.opacity(0.6), color.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: isInhaling ? 90 : 60, height: isInhaling ? 90 : 60)
+            }
+            .frame(height: 140)
+            
+            VStack(spacing: 6) {
+                Text(phaseText)
+                    .font(.subheadline)
+                    .tracking(1.0)
+                    .foregroundStyle(Color(.label).opacity(0.8))
+                    .id(phaseText)
+                    .transition(.opacity.animation(.easeInOut(duration: 1.0)))
+                
+                Text(contextMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .id(contextMessage)
+                    .transition(.opacity.animation(.easeInOut(duration: 1.0)))
+            }
+        }
+        .onAppear {
+            startBreathingCycle()
+        }
+    }
+    
+    private func startBreathingCycle() {
+        // Run immediately without waiting for timer
+        triggerInhale()
+        
+        let totalCycleTime = Double(inhaleDuration + exhaleDuration)
+        
+        // Timer for the overarching phase changes (every 10 seconds)
+        Timer.scheduledTimer(withTimeInterval: totalCycleTime, repeats: true) { _ in
+            triggerExhale()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(exhaleDuration)) {
+                triggerInhale()
+            }
+        }
+        
+        // Timer for the 1-second countdown ticks
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            if timeRemaining > 1 {
+                timeRemaining -= 1
+            }
+        }
+    }
+    
+    private func triggerInhale() {
+        withAnimation(.easeInOut(duration: Double(inhaleDuration))) {
+            isInhaling = true
+            phaseText = "Breathe in"
+            timeRemaining = inhaleDuration
+        }
+        
+        // Randomly pick a message for the inhale
+        withAnimation(.easeInOut(duration: 1.0)) {
+            contextMessage = inhaleMessages.randomElement() ?? ""
+        }
+    }
+    
+    private func triggerExhale() {
+        withAnimation(.easeInOut(duration: Double(exhaleDuration))) {
+            isInhaling = false
+            phaseText = "Breathe out"
+            timeRemaining = exhaleDuration
+        }
+        
+        // Randomly pick a message for the exhale
+        withAnimation(.easeInOut(duration: 1.0)) {
+            contextMessage = exhaleMessages.randomElement() ?? ""
+        }
+    }
+}
+
+// MARK: - Reflection Footer View
+
+/// Handles the 20-second delay to transition the bottom text into a glowing completion button.
+private struct ReflectionFooterView: View {
+    var color: Color
+    var onComplete: () -> Void
+    
+    @State private var isComplete = false
+    
+    var body: some View {
+        ZStack {
+            if !isComplete {
+                Text("Breathe with the rhythm.")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color(.tertiaryLabel))
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            } else {
+                Button(action: onComplete) {
+                    VStack(spacing: 8) {
+                        Text("Simulation Ended")
+                            .font(.headline)
+                            .tracking(1.2)
+                            .foregroundStyle(color)
+                            .shadow(color: color.opacity(0.8), radius: 6, x: 0, y: 0)
+                        
+                        Text("Tap here to Continue...")
+                            .font(.caption)
+                            .foregroundStyle(Color(.secondaryLabel))
+                    }
+                }
+                .buttonStyle(.plain)
+                .transition(.opacity.combined(with: .scale(scale: 1.05)))
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.bottom, 80)
+        // Invisible tracker to start the 20s timer ONLY when the user actually scrolls to this page.
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onChange(of: geo.frame(in: .global).minY) { _, newValue in
+                        // When the footer comes into the safe visible area of the screen
+                        let screenHeight = UIScreen.main.bounds.height
+                        if newValue < screenHeight && !hasStartedTimer {
+                            startCompletionTimer()
+                        }
+                    }
+            }
+        )
+    }
+    
+    @State private var hasStartedTimer = false
+    
+    private func startCompletionTimer() {
+        hasStartedTimer = true
+        // Exactly 2 breathing cycles (4s inhale + 6s exhale) * 2 = 20 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20.0) {
+            withAnimation(.easeInOut(duration: 1.5)) {
+                isComplete = true
             }
         }
     }

@@ -34,36 +34,71 @@ struct LungView: View {
             ZStack {
 
                 // ── RIGHT LOBE ───────────────────────────────────────────
-                LungLobe(widthScale: 1.00)
-                    .fill(lungGradient)
-                    .opacity(lungOpacity)
-                    .frame(width: lobeW, height: lobeH)
-                    // Top anchored: expands more horizontally than vertically,
-                    // bottom bulges while top stays near the trachea.
-                    .scaleEffect(x: breathX, y: breathY, anchor: .top)
-                    .position(
-                        x: w * 0.5 + gap * 0.5 + lobeW * 0.5,
-                        y: lobeY + lobeH * 0.5
-                    )
+                ZStack {
+                    LungLobe(widthScale: 1.00)
+                        .fill(clinicalBaseGradient)
+                        .overlay(
+                            LungLobe(widthScale: 1.00)
+                                .fill(aqiStrainOverlayColor)
+                                .blendMode(.multiply)
+                        )
+                        // Inner shadow for anatomical depth, slightly deeper as vitality drops
+                        .overlay(
+                            LungLobe(widthScale: 1.00)
+                                .stroke(Color.black.opacity(0.15 + (1.0 - aqi.severityLevel) * 0.1), lineWidth: 1.5)
+                                .blur(radius: 4)
+                                .blendMode(.multiply)
+                                .mask(LungLobe(widthScale: 1.00))
+                        )
+                }
+                .opacity(lungOpacity)
+                .frame(width: lobeW, height: lobeH)
+                // Top anchored: expands more horizontally than vertically,
+                // bottom bulges while top stays near the trachea.
+                .scaleEffect(x: breathX, y: breathY, anchor: .top)
+                .position(
+                    x: w * 0.5 + gap * 0.5 + lobeW * 0.5,
+                    y: lobeY + lobeH * 0.5
+                )
 
                 // ── LEFT LOBE (mirrored + directional breath) ────────────
-                LungLobe(widthScale: 0.88)
-                    .fill(lungGradient)
-                    .opacity(lungOpacity)
-                    .frame(width: lobeW, height: lobeH)
-                    // Negative breathX preserves mirror while breathing outward
-                    .scaleEffect(x: -breathX, y: breathY, anchor: .top)
-                    .position(
-                        x: w * 0.5 - gap * 0.5 - lobeW * 0.5,
-                        y: lobeY + lobeH * 0.5
-                    )
+                ZStack {
+                    LungLobe(widthScale: 0.88)
+                        .fill(clinicalBaseGradient)
+                        .overlay(
+                            LungLobe(widthScale: 0.88)
+                                .fill(aqiStrainOverlayColor)
+                                .blendMode(.multiply)
+                        )
+                        .overlay(
+                            LungLobe(widthScale: 0.88)
+                                .stroke(Color.black.opacity(0.15 + (1.0 - aqi.severityLevel) * 0.1), lineWidth: 1.5)
+                                .blur(radius: 4)
+                                .blendMode(.multiply)
+                                .mask(LungLobe(widthScale: 0.88))
+                        )
+                }
+                .opacity(lungOpacity)
+                .frame(width: lobeW, height: lobeH)
+                // Negative breathX preserves mirror while breathing outward
+                .scaleEffect(x: -breathX, y: breathY, anchor: .top)
+                .position(
+                    x: w * 0.5 - gap * 0.5 - lobeW * 0.5,
+                    y: lobeY + lobeH * 0.5
+                )
 
                 // ── TRACHEA + CARINA ─────────────────────────────────────
                 TracheaShape(breathingFactor: breathTrachea)
-                    .fill(lungGradient)
+                    .fill(clinicalBaseGradient)
+                    .overlay(
+                        TracheaShape(breathingFactor: breathTrachea)
+                            .fill(aqiStrainOverlayColor)
+                            .blendMode(.multiply)
+                    )
                     .opacity(lungOpacity)
                     .frame(width: tracW, height: tracH)
                     .position(x: w * 0.5, y: tracH * 0.5)
+
 
                 // ── PARTICLE OVERLAY ──────────────────────────────────────
                 // Covers the lobe area only. geo.size is reused — no nested GeometryReader.
@@ -77,8 +112,10 @@ struct LungView: View {
             }
             // ── TIME-EXPOSURE MODIFIERS ───────────────────────────────────
             // Subtle desaturation + glow dim, animated on exposure change.
-            .saturation(1.0 - exposureDesaturation)
-            .brightness(-exposureGlowDim)
+            // If AQI is Good (.severityLevel == 1.0), decay is almost completely mitigated.
+            // Decay impact ramps up as severityLevel drops (worsening AQI).
+            .saturation(1.0 - exposureDesaturation * ((1.05 - aqi.severityLevel) * 2.0))
+            .brightness(-exposureGlowDim * ((1.05 - aqi.severityLevel) * 2.0))
         }
         .onAppear {
             // Set exposure modifiers immediately (no transition on first appear).
@@ -116,25 +153,33 @@ struct LungView: View {
         }
     }
 
-    // MARK: - Gradient (lighter at top, richer at bottom)
-
-    private var lungGradient: LinearGradient {
+    // MARK: - Base Anatomical Gradient (Medically Neutral Blue)
+    
+    // A clean, clinical blue that looks healthy and premium
+    private var clinicalBaseGradient: LinearGradient {
         LinearGradient(
             stops: [
-                .init(color: Color(hue: 0.57, saturation: 0.52, brightness: 0.96), location: 0.00),
-                .init(color: Color(hue: 0.58, saturation: 0.65, brightness: 0.80), location: 0.45),
-                .init(color: Color(hue: 0.61, saturation: 0.70, brightness: 0.58), location: 1.00)
+                .init(color: Color(hue: 0.59, saturation: 0.45, brightness: 0.95), location: 0.00),
+                .init(color: Color(hue: 0.60, saturation: 0.55, brightness: 0.82), location: 0.45),
+                .init(color: Color(hue: 0.63, saturation: 0.65, brightness: 0.65), location: 1.00)
             ],
             startPoint: .top,
             endPoint: .bottom
         )
     }
 
-    // MARK: - Opacity (dims as oxygenEfficiency drops)
+    // MARK: - Environmental Strain Modifiers
+    
+    // Subtle atmospheric tint using the active AQI color (max 12% opacity)
+    private var aqiStrainOverlayColor: Color {
+        // Less overall visibility of the tint if the air is Good (severity close to 1.0)
+        let intensity = 0.12 * (1.1 - aqi.severityLevel)
+        return aqi.color.opacity(max(0.02, intensity))
+    }
 
     private var lungOpacity: Double {
-        // 0.65 at worst (AQI hazardous) → 1.0 at best (clean air)
-        0.65 + 0.35 * oxygenEfficiency
+        // Keeps the lung structure highly visible but slightly fades at extreme hazard levels
+        0.85 + 0.15 * aqi.severityLevel
     }
 }
 
