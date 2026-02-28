@@ -73,6 +73,69 @@ enum AQI: CaseIterable, Identifiable {
         }
     }
 
+    // MARK: - Preventive Actions
+
+    var preventiveMessages: [String] {
+        switch self {
+        case .good:
+            return [
+                "Continue outdoor activities normally",
+                "Maintain ventilation at home",
+                "Monitor local air trends"
+            ]
+        case .moderate:
+            return [
+                "Sensitive individuals should reduce prolonged exertion",
+                "Consider indoor workouts",
+                "Use air purifiers if available"
+            ]
+        case .unhealthySensitive:
+            return [
+                "Reduce prolonged outdoor exposure",
+                "Wear a mask in high traffic areas",
+                "Keep windows closed during peak pollution"
+            ]
+        case .unhealthy:
+            return [
+                "Avoid outdoor exercise",
+                "Use N95 mask outdoors",
+                "Run air purifier indoors"
+            ]
+        case .veryUnhealthy:
+            return [
+                "Minimize outdoor exposure",
+                "Keep indoor air filtered",
+                "Avoid physical exertion"
+            ]
+        case .hazardous:
+            return [
+                "Stay indoors entirely",
+                "Seal windows and doors",
+                "Use high-grade air filtration"
+            ]
+        }
+    }
+
+    // MARK: - Health Risks / Symptoms
+
+    var healthRisks: (primary: String, secondary: String) {
+        switch self {
+        case .good:
+            return ("Air quality is considered satisfactory.", "Pollution poses minimal long-term risk.")
+        case .moderate:
+            return ("Air quality is acceptable for most.", "Unusually sensitive individuals may experience minor respiratory symptoms.")
+        case .unhealthySensitive:
+            return ("Sensitive groups may experience health effects.", "Risk of coughing, shortness of breath, and asthma aggravation.")
+        case .unhealthy:
+            return ("Increased likelihood of respiratory effects.", "Risk of heart or lung disease exacerbation in general population.")
+        case .veryUnhealthy:
+            return ("Significant risk of respiratory illness.", "Long-term exposure increases risk of chronic lung disease.")
+        case .hazardous:
+            return ("Emergency conditions with severe impact.", "High risk of severe respiratory effects and irreversible damage.")
+        }
+    }
+
+
 
     /// The official color associated with each AQI band.
     /// Used to tint UI elements (title text, picker segments, etc.)

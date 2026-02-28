@@ -5,13 +5,21 @@ struct MainSimulationView: View {
     @EnvironmentObject private var state: SimulationState
     @State private var isAQISheetPresented = false
     
+    /// Tracks scroll position to slightly fade lungs natively
+    @State private var scrollOffset: CGFloat = 0
+    
     /// Projected lung vitality as a percentage, derived from oxygen efficiency.
     private var projectedVitalityPercent: Int {
         Int((state.oxygenEfficiency * 100).rounded())
     }
     
     var body: some View {
-        VStack(spacing: 0) {
+        GeometryReader { geo in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    
+                    // MAIN SCREEN VSTACK (Pre-scroll identical layout)
+                    VStack(spacing: 0) {
             
             // ╔══════════════════════════════════════════════════════════╗
             // ║  GROUP A — Status                                        ║
@@ -64,6 +72,8 @@ struct MainSimulationView: View {
                      exposure: state.selectedExposure)
             .frame(width: 320, height: 340)   // +6% from 300×320
             .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 12)
+            // Progressively fade lungs slightly out as user scrolls up
+            .opacity(max(0.92, 1.0 - (max(0, -scrollOffset) / 800.0)))
             
             // ── Gap B→C
             Spacer().frame(height: 18)
@@ -167,8 +177,152 @@ struct MainSimulationView: View {
             .padding(.bottom, 12)
             
             Spacer().frame(height: 10)
+                    }
+                    .frame(minHeight: geo.size.height)
+                    
+                    // ── SCROLL SECTION: Subtle Gradient Divider ────────
+                    VStack(spacing: 0) {
+                        LinearGradient(
+                            colors: [Color.clear, state.selectedAQI.glowColor.opacity(0.12)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 80)
+                        .padding(.top, 10)
+                        
+                        // Invisible tracker to measure scroll
+                        GeometryReader { innerGeo in
+                            Color.clear
+                                .onChange(of: innerGeo.frame(in: .global).minY) { _, newValue in
+                                    scrollOffset = newValue
+                                }
+                        }
+                        .frame(height: 0)
+
+                        // ── SCROLL SECTION: Health Risks (Redesigned) ──────
+                        VStack(alignment: .leading, spacing: 24) {
+                            // Section Header
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Air Quality Profile")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .tracking(1.5)
+                                    .foregroundStyle(state.selectedAQI.color)
+                                
+                                Text("Health Impact")
+                                    .font(.title3)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color(.label).opacity(0.9))
+                            }
+                            
+                            // Main Impact Text (Two-tier, Left-aligned)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(state.selectedAQI.healthRisks.primary)
+                                    .font(.system(size: 18, weight: .regular, design: .serif))
+                                    .foregroundStyle(Color(.label).opacity(0.9))
+                                    .lineSpacing(4)
+                                
+                                Text(state.selectedAQI.healthRisks.secondary)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color(.secondaryLabel))
+                                    .lineSpacing(4)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 32)
+                        .scrollTransition(.animated.threshold(.visible(0.9))) { effect, phase in
+                            effect.opacity(phase.isIdentity ? 1 : 0.6)
+                        }
+                        
+                        // ── Soft Divider ──
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.clear, Color(.systemGray4).opacity(0.4), .clear],
+                                    startPoint: .leading, endPoint: .trailing
+                                )
+                            )
+                            .frame(height: 1)
+                            .padding(.vertical, 40)
+                            .padding(.horizontal, 40)
+
+                        // ── SCROLL SECTION: Preventive Actions (Redesigned) ─
+                        VStack(alignment: .leading, spacing: 32) {
+                            Text("Recommended Precautions")
+                                .font(.headline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color(.label).opacity(0.85))
+                                .scrollTransition(.animated.threshold(.visible(0.9))) { effect, phase in
+                                    effect.opacity(phase.isIdentity ? 1 : 0.6)
+                                }
+                            
+                            // Using standard whitespace instead of hard lines
+                            VStack(alignment: .leading, spacing: 24) {
+                                ForEach(Array(state.selectedAQI.preventiveMessages.enumerated()), id: \.element) { index, msg in
+                                    HStack(alignment: .top, spacing: 16) {
+                                        Image(systemName: "checkmark.seal.fill")
+                                            .font(.title3.weight(.medium))
+                                            .foregroundStyle(state.selectedAQI.color)
+                                            .opacity(0.8)
+                                        
+                                        Text(msg)
+                                            .font(.subheadline)
+                                            .foregroundStyle(Color(.secondaryLabel).opacity(0.85))
+                                            .lineSpacing(4)
+                                        
+                                        Spacer(minLength: 0)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .scrollTransition(.animated.threshold(.visible(0.9))) { effect, phase in
+                                        effect
+                                            .opacity(phase.isIdentity ? 1 : 0.6)
+                                            .offset(y: phase.isIdentity ? 0 : 8)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: 340)
+                            .animation(.easeInOut(duration: 0.35), value: state.selectedAQI)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 32)
+                        .padding(.bottom, 60)
+                        
+                        // ── SCROLL SECTION: Reflection ─────────────────────
+                        VStack(spacing: 12) {
+                            Text("Take a Moment")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color(.secondaryLabel))
+                            
+                            Text("Long-term exposure shapes lung health.\nDaily choices determine recovery.")
+                                .font(.footnote)
+                                .foregroundStyle(Color(.secondaryLabel))
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(6)
+                                .padding(.horizontal, 40)
+                        }
+                        .padding(.top, 120)
+                        .padding(.bottom, 80)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RadialGradient(
+                                colors: [state.selectedAQI.glowColor.opacity(0.06), .clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 150
+                            )
+                        )
+                        .padding(.bottom, 160)
+                        .scrollTransition(.animated.threshold(.visible(0.9))) { effect, phase in
+                            effect.opacity(phase.isIdentity ? 1 : 0.4)
+                        }
+                    }
+                    .background(Color.white.opacity(0.03))
+                }
+                .padding(.horizontal)
+            }
         }
-        .padding(.horizontal)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(atmosphericBackground)
         .navigationTitle("Breath of Time")
