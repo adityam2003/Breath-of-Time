@@ -10,7 +10,7 @@ import AppleProductTypes
 let package = Package(
     name: "Breath of Time",
     platforms: [
-        .iOS("17.0")
+        .iOS("26.0")
     ],
     products: [
         .iOSApplication(
@@ -20,7 +20,7 @@ let package = Package(
             teamIdentifier: "WUZ7WCX8QM",
             displayVersion: "1.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .gamepad),
+            appIcon: .asset("AppIcon"),
             accentColor: .presetColor(.yellow),
             supportedDeviceFamilies: [
                 .pad,
@@ -40,5 +40,5 @@ let package = Package(
             path: "."
         )
     ],
-    swiftLanguageVersions: [.v6]
+    swiftLanguageVersions: [.version("6")]
 )

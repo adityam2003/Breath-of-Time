@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - App Phase
 
 enum AppPhase {
+    case story
     case intro
     case simulation
 }
@@ -13,7 +14,7 @@ final class SimulationState: ObservableObject {
 
     // MARK: Navigation
     
-    @Published var phase: AppPhase = .intro
+    @Published var phase: AppPhase = .story
 
     // MARK: Simulation Inputs
     

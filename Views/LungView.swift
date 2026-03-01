@@ -7,6 +7,7 @@ struct LungView: View {
     let oxygenEfficiency: Double
     var aqi: AQI = .good
     var exposure: TimeExposure = .oneYear
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Separate X and Y breath states for organic directional expansion
     @State private var breathX: CGFloat = 1.00
@@ -17,6 +18,8 @@ struct LungView: View {
     @State private var exposureDesaturation: Double = 0.0
     @State private var exposureGlowDim: Double      = 0.0
     @State private var exposureAmplitude: Double    = 1.0
+    
+    @State private var isAppeared: Bool = false
 
     var body: some View {
         GeometryReader { geo in
@@ -51,7 +54,7 @@ struct LungView: View {
                                 .mask(LungLobe(widthScale: 1.00))
                         )
                 }
-                .opacity(lungOpacity)
+                .opacity(isAppeared ? lungOpacity : 0.0)
                 .frame(width: lobeW, height: lobeH)
                 // Top anchored: expands more horizontally than vertically,
                 // bottom bulges while top stays near the trachea.
@@ -78,7 +81,7 @@ struct LungView: View {
                                 .mask(LungLobe(widthScale: 0.88))
                         )
                 }
-                .opacity(lungOpacity)
+                .opacity(isAppeared ? lungOpacity : 0.0)
                 .frame(width: lobeW, height: lobeH)
                 // Negative breathX preserves mirror while breathing outward
                 .scaleEffect(x: -breathX, y: breathY, anchor: .top)
@@ -95,7 +98,7 @@ struct LungView: View {
                             .fill(aqiStrainOverlayColor)
                             .blendMode(.multiply)
                     )
-                    .opacity(lungOpacity)
+                    .opacity(isAppeared ? lungOpacity : 0.0)
                     .frame(width: tracW, height: tracH)
                     .position(x: w * 0.5, y: tracH * 0.5)
 
@@ -104,6 +107,7 @@ struct LungView: View {
                 // Covers the lobe area only. geo.size is reused — no nested GeometryReader.
                 LungParticleOverlay(aqi: aqi, size: CGSize(width: w, height: h))
                     .position(x: w * 0.5, y: h * 0.5)
+                    .opacity(isAppeared ? .init(lungOpacity) : 0.0)
                     .clipShape(
                         // Soft ellipse mask keeps particles inside the lung silhouette.
                         Ellipse().scale(x: 0.88, y: 0.92)
@@ -117,12 +121,23 @@ struct LungView: View {
             .saturation(1.0 - exposureDesaturation * ((1.05 - aqi.severityLevel) * 2.0))
             .brightness(-exposureGlowDim * ((1.05 - aqi.severityLevel) * 2.0))
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Lung visualization")
         .onAppear {
             // Set exposure modifiers immediately (no transition on first appear).
             exposureDesaturation = exposure.desaturationAmount
             exposureGlowDim      = exposure.glowReduction
             exposureAmplitude    = exposure.breathingAmplitudeScale
-            startBreathAnimation()
+            if !reduceMotion {
+                startBreathAnimation()
+            }
+            
+            // Soft delayed fade-in when the simulation starts
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    isAppeared = true
+                }
+            }
         }
         .onChange(of: exposure) { _, newExposure in
             // Animate any exposure change over 1.8 seconds.

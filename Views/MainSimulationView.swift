@@ -67,10 +67,14 @@ struct MainSimulationView: View {
             // ║  GROUP B — Lung Visualisation                            ║
             // ╚══════════════════════════════════════════════════════════╝
             
-            LungView(oxygenEfficiency: state.oxygenEfficiency,
-                     aqi: state.selectedAQI,
-                     exposure: state.selectedExposure)
-            .frame(width: 320, height: 340)   // +6% from 300×320
+            LungView(
+                oxygenEfficiency: state.oxygenEfficiency,
+                aqi: state.selectedAQI,
+                exposure: state.selectedExposure
+            )
+            .frame(width: 320, height: 340)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Interactive lung simulation showing effects of \(state.selectedAQI.displayName) air quality over \(state.selectedExposure.displayName)")
             .shadow(color: .black.opacity(0.06), radius: 20, x: 0, y: 12)
             // Progressively fade lungs slightly out as user scrolls up
             .opacity(max(0.92, 1.0 - (max(0, -scrollOffset) / 800.0)))
@@ -129,6 +133,7 @@ struct MainSimulationView: View {
                         .foregroundStyle(Color(.secondaryLabel))
                     
                     Button {
+                        HapticManager.soft()
                         isAQISheetPresented = true
                     } label: {
                         HStack(spacing: 6) {
@@ -150,6 +155,8 @@ struct MainSimulationView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Air Quality Index: \(state.selectedAQI.displayName)")
+                    .accessibilityHint("Opens AQI selection")
                 }
 
                 
@@ -160,6 +167,12 @@ struct MainSimulationView: View {
                     activeColor: state.selectedAQI.color,
                     labelFor: { $0.displayName }
                 )
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Exposure Duration: \(state.selectedExposure.displayName)")
+                .accessibilityAddTraits(.isButton)
+                .onChange(of: state.selectedExposure) { _, _ in
+                    HapticManager.selection()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
@@ -235,6 +248,7 @@ struct MainSimulationView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 32)
                         .padding(.top, 32)
+                        .accessibilityElement(children: .combine)
                         .scrollTransition(.animated.threshold(.visible(0.9))) { effect, phase in
                             effect.opacity(phase.isIdentity ? 1 : 0.6)
                         }
@@ -290,7 +304,19 @@ struct MainSimulationView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 32)
-                        .padding(.bottom, 60)
+                        .padding(.bottom, 40)
+                        .accessibilityElement(children: .combine)
+                        
+                        // ── INLINE: Environmental Health Insight (Apple Intelligence) ──
+                        if #available(iOS 26, *) {
+                            EnvironmentalInsightView(
+                                aqi: state.selectedAQI,
+                                exposure: state.selectedExposure,
+                                oxygenEfficiency: state.oxygenEfficiency
+                            )
+                            .padding(.horizontal, 32)
+                            .padding(.bottom, 40)
+                        }
                         
                         // ── Scroll Indicator to final page ──
                         ScrollIndicatorChevron(color: state.selectedAQI.color)
@@ -317,6 +343,7 @@ struct MainSimulationView: View {
                             // A lightweight guided breathing circle
                             ReflectionBreathingView(color: state.selectedAQI.color)
                                 .padding(.vertical, 20)
+                                .accessibilityLabel("Guided breathing exercise")
                             
                             Spacer()
                             
@@ -327,6 +354,8 @@ struct MainSimulationView: View {
                         }
                         .containerRelativeFrame(.vertical) // Makes it take up exactly 1 screen height
                         .frame(maxWidth: .infinity)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("A Moment to Reflect. Long-term exposure shapes lung health. Every breath and daily choice determines your recovery.")
                         .background(
                             RadialGradient(
                                 colors: [state.selectedAQI.glowColor.opacity(0.08), .clear],
@@ -799,7 +828,7 @@ private struct ReflectionFooterView: View {
     private func startCompletionTimer() {
         hasStartedTimer = true
         // Exactly 2 breathing cycles (4s inhale + 6s exhale) * 2 = 20 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15.0) {
             withAnimation(.easeInOut(duration: 1.5)) {
                 isComplete = true
             }
